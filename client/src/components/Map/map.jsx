@@ -31,10 +31,8 @@ function Map(props) {
             {...viewport}
             width="1800px"
             height="540px"
-            mapboxApiAccessToken={
-              "pk.eyJ1IjoiYXB1cnYxMSIsImEiOiJja20yNGg1NWMwNXVrMndvenZmdWo1OXJqIn0.vYZwHwi6YCF6Eknusw0zOA"
-            }
-            mapStyle="mapbox://styles/mapbox/streets-v11"
+            mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_TOKEN}
+            mapStyle={process.env.REACT_APP_MAPBOX_STYLE}
             onViewportChange={(viewport) => {
               setViewport(viewport);
             }}

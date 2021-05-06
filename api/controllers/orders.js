@@ -1,119 +1,41 @@
-const mongoose = require('mongoose');
-const Order = require('../models/order');
-const Product = require('../models/product');
+require("dotenv").config();
 
-exports.getAllOrders = (req, res, next) => {
-    Order
-        .find()
-        .select('_id cart')
-        .exec()
-        .then(orders => {
-            res.status(200).json({
-                count: orders.length,
-                orders: orders
-            });
-        })
-        .catch(error => {
-            next(error);
-        })
-};
+const stripe = require("stripe")(process.env.STRIPE_KEY);
 
-exports.createOneOrder = (req, res, next) => {
-    return new Order({
-        _id: mongoose.Types.ObjectId(),
-        userId: req.body.userId,
-        cart: req.body.cart
-    })
-    .save()
-    .then(result => {
-        res.status(200).json({
-            order: result
-        });
-    })
-    .catch(err => {
-        res.status(500).json({
-            error: err
-        });
+exports.checkout = async (req, res, next) => {
+  let error;
+  let status;
+
+  try {
+    const customer = await stripe.customers.create({
+      email: req.body.token.email,
+      source: req.body.token.id
     });
-    // Product
-    //     .findById(req.body.productId)
-    //     .exec()
-    //     .then(product => {
-    //         if (!product) {
-    //             return res.status(404).json({
-    //                 message: 'Product Not Found!'
-    //             });
-    //         }
-    //         return createOrder(req);
-    //     })
-    //     .then(order => {
-    //         return order.save();
-    //     })
-    //     .then(order => {
-    //         return res.status(201).json({
-    //             message: 'Order was created',
-    //             order: {
-    //                 _id: order._id,
-    //                 product: order.product,
-    //                 quantity: order.quantity
-    //             }
-    //         });
-    //     })
-    //     .catch(error => {
-    //         next(error);
-    //     });
-};
 
-exports.getOneOrder = (req, res, next) => {
-    const orderId = req.params.orderId;
-    Order
-        .findById(orderId)
-        .select('_id cart')
-        .exec()
-        .then(order => {
-            return res.status(201).json(order);
-        })
-        .catch(error => {
-            next(error);
-        });
-};
+      const charge = await stripe.charges.create(
+        {
+          amount: req.body.itemsPrice*100,
+          currency: "inr",
+          customer: customer.id,
+          receipt_email: req.body.token.email,
+          description: "Purchased Successfully!",
+          shipping: {
+            name: req.body.token.card.name,
+            address: {
+              line1: req.body.token.card.address_line1,
+              line2: req.body.token.card.address_line2,
+              city: req.body.token.card.address_city,
+              country: req.body.token.card.address_country,
+              postal_code: req.body.token.card.address_zip
+            }
+          }
+        }
+      );
+      status = "success";
+  } catch (error) {
+    console.error("Error:", error);
+    status = "failure";
+  }
 
-exports.updateOneOrder = (req, res, next) => {
-    const orderId = req.params.orderId;
-    Order
-        .update({ _id: orderId }, { $set: req.body })
-        .exec()
-        .then(result => {
-            return res.status(200).json({
-                message: 'Updated Order Successfully!',
-                result: result
-            });
-        })
-        .catch(error => {
-            next(error);
-        });
-};
-
-exports.deleteOneOrder = (req, res, next) => {
-    const orderId = req.params.orderId;
-    Order
-        .remove({ _id: orderId })
-        .exec()
-        .then(result => {
-            return res.status(200).json({
-                message: 'Deleted order!',
-                result: result
-            });
-        })
-        .catch(error => {
-            next(error);
-        });
-};
-
-function createOrder(req) {
-    return new Order({
-        _id: mongoose.Types.ObjectId(),
-        product: req.body.productId,
-        quantity: req.body.quantity
-    });
+  res.json({ error, status });
 }
